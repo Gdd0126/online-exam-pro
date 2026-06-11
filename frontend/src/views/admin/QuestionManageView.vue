@@ -24,6 +24,7 @@
         <input ref="fileInput" hidden type="file" accept=".json,.xlsx,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" @change="handleImport" />
       </div>
     </div>
+    <p class="muted">支持上传 .xlsx 或 .json 文件。Excel 文件请按模板字段填写；JSON 文件支持数组或 { items: [...] } 格式。</p>
     <el-table v-loading="loading" :data="rows" class="pro-table">
       <el-table-column prop="title" label="题干" min-width="300">
         <template #default="{ row }">

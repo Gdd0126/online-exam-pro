@@ -14,7 +14,7 @@
         <span><i class="legend-dot"></i>未答题</span>
       </div>
       <div class="sheet-grid">
-        <button v-for="(q, i) in exam.questions" :key="q.id" :class="{ done: answers[q.id], active: i === currentIndex }" @click="currentIndex = i">{{ i + 1 }}</button>
+        <button v-for="(q, i) in exam.questions" :key="q.id" :class="{ done: answers[q.id], active: i === currentIndex }" @click="setCurrentIndex(i)">{{ i + 1 }}</button>
       </div>
       <div class="risk-box">
         <span>切屏次数</span>
@@ -62,6 +62,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import CountdownTimer from '@/components/CountdownTimer.vue'
 import QuestionCard from '@/components/QuestionCard.vue'
 import { getExam, submitExam } from '@/api/exams'
+import { getResults } from '@/api/results'
 import { useAuthStore } from '@/stores/auth'
 import { examDraftKey, getStorage, removeStorage, setStorage } from '@/utils/storage'
 
@@ -80,6 +81,9 @@ const lastSavedAt = ref(Date.now())
 const questionOrder = ref<number[]>([])
 let lastSwitchAt = 0
 let pendingSwitch: number | null = null
+let leavingPage = false
+let switchAlertPending = false
+let switchAlertOpen = false
 const answeredCount = computed(() => Object.values(answers).filter(Boolean).length)
 const unansweredCount = computed(() => Math.max((exam.value?.questions?.length || 0) - answeredCount.value, 0))
 const progressPercent = computed(() => {
@@ -99,30 +103,83 @@ function persist() {
     switchCount: switchCount.value,
     startAt: startAt.value,
     endAt: endAt.value,
-    questionOrder: questionOrder.value
+    questionOrder: questionOrder.value,
+    currentIndex: currentIndex.value,
+    currentQuestionId: currentQuestion.value?.id
   })
 }
 function setAnswer(id: number, value: string) {
   answers[String(id)] = value
   persist()
 }
+function setCurrentIndex(index: number) {
+  const maxIndex = Math.max((exam.value?.questions?.length || 1) - 1, 0)
+  currentIndex.value = Math.min(Math.max(index, 0), maxIndex)
+  persist()
+}
 function prevQuestion() {
-  currentIndex.value = Math.max(0, currentIndex.value - 1)
+  setCurrentIndex(currentIndex.value - 1)
 }
 function nextQuestion() {
-  currentIndex.value = Math.min((exam.value?.questions?.length || 1) - 1, currentIndex.value + 1)
+  setCurrentIndex(currentIndex.value + 1)
 }
-function markSwitch() {
+function clearPendingSwitch() {
+  if (pendingSwitch !== null) {
+    window.clearTimeout(pendingSwitch)
+    pendingSwitch = null
+  }
+}
+function showSwitchAlert() {
+  if (!switchAlertPending || switchAlertOpen || submitted.value) return
+  switchAlertPending = false
+  switchAlertOpen = true
+  ElMessageBox.alert(
+    `检测到你离开了考试页面，本次行为已记录。当前切屏次数：${switchCount.value} 次。`,
+    '切屏提示',
+    {
+      type: 'warning',
+      confirmButtonText: '我知道了'
+    }
+  ).finally(() => {
+    switchAlertOpen = false
+  })
+}
+function recordSwitch() {
   if (submitted.value) return
   const now = Date.now()
   if (now - lastSwitchAt < 800) return
   lastSwitchAt = now
   switchCount.value += 1
+  switchAlertPending = true
   persist()
-  ElMessage.warning(`检测到切屏，当前次数 ${switchCount.value}`)
+  if (!document.hidden && document.hasFocus()) showSwitchAlert()
+}
+function scheduleSwitchCheck() {
+  if (submitted.value || leavingPage || pendingSwitch !== null) return
+  pendingSwitch = window.setTimeout(() => {
+    pendingSwitch = null
+    if (leavingPage || submitted.value) return
+    recordSwitch()
+  }, 900)
 }
 function handleVisibilityChange() {
-  if (document.hidden) markSwitch()
+  if (document.hidden) {
+    scheduleSwitchCheck()
+  } else {
+    clearPendingSwitch()
+    showSwitchAlert()
+  }
+}
+function handleFocus() {
+  if (!document.hidden) {
+    clearPendingSwitch()
+    showSwitchAlert()
+  }
+}
+function handlePageLeaving() {
+  leavingPage = true
+  clearPendingSwitch()
+  persist()
 }
 async function doSubmit(isTimeout = false) {
   if (submitted.value) return
@@ -175,8 +232,16 @@ function autoSubmit() {
   doSubmit(true)
 }
 onMounted(async () => {
+  const resultRows = await getResults()
+  const completedResult = (resultRows as any[]).find((result) => Number(result.exam_id) === Number(route.params.id))
+  if (completedResult) {
+    ElMessage.info('该考试已完成，已为你跳转到成绩报告')
+    router.replace(completedResult.id ? `/student/results/${completedResult.id}` : '/student/results')
+    return
+  }
+
   exam.value = await getExam(route.params.id as string)
-  const draft = getStorage<any>(draftKey(), { answers: {}, switchCount: 0, startAt: 0, endAt: 0, questionOrder: [] })
+  const draft = getStorage<any>(draftKey(), { answers: {}, switchCount: 0, startAt: 0, endAt: 0, questionOrder: [], currentIndex: 0, currentQuestionId: null })
   const savedOrder = Array.isArray(draft.questionOrder) ? draft.questionOrder.map(Number).filter(Boolean) : []
   if (exam.value?.is_random && savedOrder.length) {
     const orderMap = new Map<number, number>(savedOrder.map((id: number, index: number) => [id, index]))
@@ -196,12 +261,21 @@ onMounted(async () => {
   endAt.value = draft.endAt || Date.now() + Number(exam.value.duration) * 60 * 1000
   Object.assign(answers, draft.answers || {})
   switchCount.value = draft.switchCount || 0
+  const savedQuestionIndex = exam.value.questions.findIndex((question: any) => Number(question.id) === Number(draft.currentQuestionId))
+  setCurrentIndex(savedQuestionIndex >= 0 ? savedQuestionIndex : Number(draft.currentIndex || 0))
   persist()
   document.addEventListener('visibilitychange', handleVisibilityChange)
-  window.addEventListener('blur', markSwitch)
+  window.addEventListener('blur', scheduleSwitchCheck)
+  window.addEventListener('focus', handleFocus)
+  window.addEventListener('beforeunload', handlePageLeaving)
+  window.addEventListener('pagehide', handlePageLeaving)
 })
 onBeforeUnmount(() => {
+  clearPendingSwitch()
   document.removeEventListener('visibilitychange', handleVisibilityChange)
-  window.removeEventListener('blur', markSwitch)
+  window.removeEventListener('blur', scheduleSwitchCheck)
+  window.removeEventListener('focus', handleFocus)
+  window.removeEventListener('beforeunload', handlePageLeaving)
+  window.removeEventListener('pagehide', handlePageLeaving)
 })
 </script>

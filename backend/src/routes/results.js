@@ -35,9 +35,19 @@ async function duplicateSubmissionResponse(res, examId, userId) {
 
 router.post('/exam/submit', async (req, res, next) => {
   try {
+    if (req.user.role !== 'student') {
+      return res.status(403).json({ code: 403, message: '只有考生可以提交考试', data: null });
+    }
+
     const { exam_id, answers = {}, duration_used = 0, switch_count = 0, is_timeout = false } = req.body;
     const examId = Number(exam_id);
     if (!examId) return res.status(400).json({ code: 400, message: '考试不能为空', data: null });
+
+    const exam = await get('SELECT id, is_published FROM exams WHERE id = ?', [examId]);
+    if (!exam) return res.status(404).json({ code: 404, message: '考试不存在', data: null });
+    if (Number(exam.is_published) !== 1) {
+      return res.status(403).json({ code: 403, message: '该考试尚未发布，不能提交', data: null });
+    }
 
     const existing = await get(
       'SELECT id FROM submissions WHERE exam_id = ? AND user_id = ? ORDER BY submitted_at DESC LIMIT 1',

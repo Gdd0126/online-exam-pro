@@ -24,11 +24,11 @@
     <el-card class="login-card">
       <h2>账号登录</h2>
       <p class="muted">管理员和考生将进入不同工作台</p>
-      <el-form :model="form" @keyup.enter="handleLogin">
-        <el-form-item>
+      <el-form ref="formRef" :model="form" :rules="rules" @keyup.enter="handleLogin">
+        <el-form-item prop="username">
           <el-input v-model="form.username" size="large" placeholder="用户名" prefix-icon="User" />
         </el-form-item>
-        <el-form-item>
+        <el-form-item prop="password">
           <el-input v-model="form.password" size="large" placeholder="密码" type="password" show-password prefix-icon="Lock" />
         </el-form-item>
         <el-button class="full" size="large" type="primary" :loading="loading" @click="handleLogin">登录系统</el-button>
@@ -52,12 +52,18 @@
 import { reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
+import type { FormInstance, FormRules } from 'element-plus'
 import { useAuthStore } from '@/stores/auth'
 
 const router = useRouter()
 const auth = useAuthStore()
 const loading = ref(false)
+const formRef = ref<FormInstance>()
 const form = reactive({ username: 'admin', password: '123456' })
+const rules: FormRules = {
+  username: [{ required: true, whitespace: true, message: '用户名不能为空', trigger: 'blur' }],
+  password: [{ required: true, whitespace: true, message: '密码不能为空', trigger: 'blur' }]
+}
 
 function fill(role: 'admin' | 'student') {
   form.username = role
@@ -65,6 +71,8 @@ function fill(role: 'admin' | 'student') {
 }
 
 async function handleLogin() {
+  const valid = await formRef.value?.validate().catch(() => false)
+  if (!valid) return
   loading.value = true
   try {
     const user = await auth.login(form.username, form.password)

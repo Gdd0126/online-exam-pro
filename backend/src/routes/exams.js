@@ -35,6 +35,21 @@ function validateExamPayload(body) {
   };
 }
 
+async function validatePublishRequirements(examId, totalScore) {
+  const summary = await get(
+    'SELECT COUNT(*) AS question_count, COALESCE(SUM(score), 0) AS score_sum FROM questions WHERE exam_id = ?',
+    [examId]
+  );
+  const questionCount = Number(summary?.question_count || 0);
+  const scoreSum = Number(summary?.score_sum || 0);
+
+  if (questionCount === 0) return { message: '该考试还没有题目，不能发布' };
+  if (scoreSum !== Number(totalScore)) {
+    return { message: `题目总分为 ${scoreSum} 分，与试卷总分 ${totalScore} 分不一致，不能发布` };
+  }
+  return null;
+}
+
 router.get('/exams', async (req, res, next) => {
   try {
     const where = req.user.role === 'student' || req.query.published === '1' ? 'WHERE e.is_published = 1' : '';
@@ -73,6 +88,9 @@ router.post('/exams', adminRequired, async (req, res, next) => {
     const validated = validateExamPayload(req.body);
     if (validated.message) return res.status(400).json({ code: 400, message: validated.message, data: null });
     const { title, description, duration, total_score, is_random, is_published } = validated.value;
+    if (is_published) {
+      return res.status(400).json({ code: 400, message: '该考试还没有题目，不能发布', data: null });
+    }
     const result = await run(
       'INSERT INTO exams (title, description, duration, total_score, is_random, is_published) VALUES (?, ?, ?, ?, ?, ?)',
       [title, description || '', duration, total_score, is_random ? 1 : 0, is_published ? 1 : 0]
@@ -88,6 +106,13 @@ router.put('/exams/:id', adminRequired, async (req, res, next) => {
     const validated = validateExamPayload(req.body);
     if (validated.message) return res.status(400).json({ code: 400, message: validated.message, data: null });
     const { title, description, duration, total_score, is_random, is_published } = validated.value;
+    const currentExam = await get('SELECT id, is_published FROM exams WHERE id = ?', [req.params.id]);
+    if (!currentExam) return res.status(404).json({ code: 404, message: '考试不存在', data: null });
+    const isPublishing = is_published && !currentExam.is_published;
+    if (isPublishing) {
+      const publishError = await validatePublishRequirements(req.params.id, total_score);
+      if (publishError) return res.status(400).json({ code: 400, message: publishError.message, data: null });
+    }
     await run(
       'UPDATE exams SET title = ?, description = ?, duration = ?, total_score = ?, is_random = ?, is_published = ? WHERE id = ?',
       [title, description || '', duration, total_score, is_random ? 1 : 0, is_published ? 1 : 0, req.params.id]
