@@ -17,6 +17,7 @@ build/
 .env.production.local
 
 # Database / data files
+*.db
 *.sqlite
 *.sqlite3
 
