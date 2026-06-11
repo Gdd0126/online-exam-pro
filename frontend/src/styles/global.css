@@ -162,6 +162,14 @@ a { color: inherit; text-decoration: none; }
   display: grid;
   gap: 8px;
   margin: 18px 0 4px;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #ffffff, #f8fbff);
+}
+.account-tips-title {
+  color: var(--ink);
+  font-weight: 850;
 }
 .account-tip {
   display: flex;
@@ -691,6 +699,13 @@ a { color: inherit; text-decoration: none; }
   font-size: 22px;
   font-weight: 850;
 }
+.countdown small {
+  max-width: 170px;
+  color: inherit;
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1.35;
+}
 .countdown.danger { color: #dc2626; background: #fef2f2; }
 .question-card {
   margin-bottom: 16px;
@@ -792,6 +807,13 @@ a { color: inherit; text-decoration: none; }
 }
 .report-info-item strong {
   color: var(--ink);
+}
+.pdf-export-tip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: var(--muted);
+  font-size: 13px;
 }
 .analysis-item { padding: 16px 0; border-top: 1px solid var(--line); }
 .analysis-item h3 { margin: 0 0 10px; line-height: 1.6; }

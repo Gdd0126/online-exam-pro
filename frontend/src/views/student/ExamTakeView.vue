@@ -77,6 +77,7 @@ const endAt = ref(0)
 const submitted = ref(false)
 const currentIndex = ref(0)
 const lastSavedAt = ref(Date.now())
+const questionOrder = ref<number[]>([])
 let lastSwitchAt = 0
 const answeredCount = computed(() => Object.values(answers).filter(Boolean).length)
 const unansweredCount = computed(() => Math.max((exam.value?.questions?.length || 0) - answeredCount.value, 0))
@@ -92,7 +93,13 @@ function draftKey() {
 }
 function persist() {
   lastSavedAt.value = Date.now()
-  setStorage(draftKey(), { answers, switchCount: switchCount.value, startAt: startAt.value, endAt: endAt.value })
+  setStorage(draftKey(), {
+    answers,
+    switchCount: switchCount.value,
+    startAt: startAt.value,
+    endAt: endAt.value,
+    questionOrder: questionOrder.value
+  })
 }
 function setAnswer(id: number, value: string) {
   answers[String(id)] = value
@@ -168,7 +175,22 @@ function autoSubmit() {
 }
 onMounted(async () => {
   exam.value = await getExam(route.params.id as string)
-  const draft = getStorage<any>(draftKey(), { answers: {}, switchCount: 0, startAt: 0, endAt: 0 })
+  const draft = getStorage<any>(draftKey(), { answers: {}, switchCount: 0, startAt: 0, endAt: 0, questionOrder: [] })
+  const savedOrder = Array.isArray(draft.questionOrder) ? draft.questionOrder.map(Number).filter(Boolean) : []
+  if (exam.value?.is_random && savedOrder.length) {
+    const orderMap = new Map<number, number>(savedOrder.map((id: number, index: number) => [id, index]))
+    exam.value.questions = [...exam.value.questions].sort((a: any, b: any) => {
+      const aIndex = orderMap.get(Number(a.id)) ?? Number.MAX_SAFE_INTEGER
+      const bIndex = orderMap.get(Number(b.id)) ?? Number.MAX_SAFE_INTEGER
+      return aIndex - bIndex
+    })
+    questionOrder.value = [
+      ...savedOrder,
+      ...exam.value.questions.map((question: any) => Number(question.id)).filter((id: number) => !savedOrder.includes(id))
+    ]
+  } else {
+    questionOrder.value = exam.value.questions.map((question: any) => Number(question.id))
+  }
   startAt.value = draft.startAt || Date.now()
   endAt.value = draft.endAt || Date.now() + Number(exam.value.duration) * 60 * 1000
   Object.assign(answers, draft.answers || {})

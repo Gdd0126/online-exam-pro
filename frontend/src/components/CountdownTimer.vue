@@ -2,6 +2,7 @@
   <div class="countdown" :class="{ danger: remain <= 300 }">
     <el-icon><Clock /></el-icon>
     <span>{{ formatSeconds(remain) }}</span>
+    <small v-if="remain > 0 && remain <= 300">剩余时间不足 5 分钟，请尽快提交</small>
   </div>
 </template>
 

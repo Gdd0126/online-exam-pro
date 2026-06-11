@@ -2,7 +2,10 @@
   <div v-if="result" ref="reportRef" class="result-page">
     <PageHeader title="成绩报告" subtitle="查看自动批改结果、考试信息、答题表现和错题解析。" eyebrow="查看批改结果">
       <template #actions>
-        <el-button class="pdf-ignore" type="primary" icon="Download" @click="exportPdf">导出 PDF</el-button>
+        <div class="pdf-export-tip pdf-ignore">
+          <span>导出包含成绩总览、答题表现与错题解析的 PDF 报告</span>
+          <el-button type="primary" icon="Download" @click="exportPdf">导出 PDF</el-button>
+        </div>
       </template>
     </PageHeader>
     <section class="result-hero">

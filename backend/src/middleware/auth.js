@@ -1,27 +1,25 @@
+const jwt = require('jsonwebtoken');
+
+const JWT_SECRET = process.env.JWT_SECRET || 'online-exam-secret';
+
 function makeToken(user) {
-  return Buffer.from(JSON.stringify({
+  return jwt.sign({
     id: user.id,
     username: user.username,
     role: user.role,
     name: user.name
-  })).toString('base64url');
-}
-
-function parseToken(token) {
-  try {
-    return JSON.parse(Buffer.from(token, 'base64url').toString('utf8'));
-  } catch {
-    return null;
-  }
+  }, JWT_SECRET, { expiresIn: '6h' });
 }
 
 function authRequired(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7) : '';
-  const user = parseToken(token);
-  if (!user) return res.status(401).json({ code: 401, message: '请先登录', data: null });
-  req.user = user;
-  return next();
+  try {
+    req.user = jwt.verify(token, JWT_SECRET);
+    return next();
+  } catch {
+    return res.status(401).json({ code: 401, message: '登录已过期，请重新登录', data: null });
+  }
 }
 
 function adminRequired(req, res, next) {

@@ -34,6 +34,7 @@
         <el-button class="full" size="large" type="primary" :loading="loading" @click="handleLogin">登录系统</el-button>
       </el-form>
       <div class="account-tips">
+        <div class="account-tips-title">演示账号</div>
         <div class="account-tip">
           <span>管理员账号：admin / 123456</span>
           <el-button text @click="fill('admin')">填入</el-button>

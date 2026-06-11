@@ -100,6 +100,10 @@ router.put('/exams/:id', adminRequired, async (req, res, next) => {
 
 router.delete('/exams/:id', adminRequired, async (req, res, next) => {
   try {
+    const submission = await get('SELECT id FROM submissions WHERE exam_id = ? LIMIT 1', [req.params.id]);
+    if (submission) {
+      return res.status(400).json({ code: 400, message: '该考试已有学生提交记录，不能删除，可改为取消发布', data: null });
+    }
     await run('DELETE FROM exams WHERE id = ?', [req.params.id]);
     res.json({ code: 0, message: '删除成功', data: null });
   } catch (err) {

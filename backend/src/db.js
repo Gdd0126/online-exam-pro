@@ -76,6 +76,8 @@ async function initDb() {
     FOREIGN KEY (exam_id) REFERENCES exams(id),
     FOREIGN KEY (user_id) REFERENCES users(id)
   )`);
+
+  await run('CREATE UNIQUE INDEX IF NOT EXISTS idx_submissions_exam_user ON submissions(exam_id, user_id)');
 }
 
 module.exports = { db, run, get, all, initDb };

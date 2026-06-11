@@ -21,6 +21,18 @@ function normalizeResult(row) {
   };
 }
 
+async function duplicateSubmissionResponse(res, examId, userId) {
+  const existing = await get(
+    'SELECT id FROM submissions WHERE exam_id = ? AND user_id = ? ORDER BY submitted_at DESC LIMIT 1',
+    [examId, userId]
+  );
+  return res.status(409).json({
+    code: 409,
+    message: '你已提交过该考试，不能重复提交',
+    data: existing ? { id: existing.id, result_id: existing.id } : null
+  });
+}
+
 router.post('/exam/submit', async (req, res, next) => {
   try {
     const { exam_id, answers = {}, duration_used = 0, switch_count = 0, is_timeout = false } = req.body;
@@ -31,13 +43,7 @@ router.post('/exam/submit', async (req, res, next) => {
       'SELECT id FROM submissions WHERE exam_id = ? AND user_id = ? ORDER BY submitted_at DESC LIMIT 1',
       [examId, req.user.id]
     );
-    if (existing) {
-      return res.status(409).json({
-        code: 409,
-        message: '你已提交过该考试，不能重复提交',
-        data: { id: existing.id, result_id: existing.id }
-      });
-    }
+    if (existing) return duplicateSubmissionResponse(res, examId, req.user.id);
 
     const scored = await scoreSubmission(examId, answers);
     const result = await run(
@@ -61,6 +67,10 @@ router.post('/exam/submit', async (req, res, next) => {
     );
     res.json({ code: 0, message: '提交成功', data: { id: result.id, ...scored } });
   } catch (err) {
+    if (err && err.code === 'SQLITE_CONSTRAINT') {
+      const examId = Number(req.body.exam_id);
+      if (examId) return duplicateSubmissionResponse(res, examId, req.user.id);
+    }
     next(err);
   }
 });
