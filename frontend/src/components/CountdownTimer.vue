@@ -22,8 +22,7 @@ function calcRemain() {
 }
 
 function updateRemain() {
-  if (props.endAt) remain.value = calcRemain()
-  else remain.value = Math.max(0, remain.value - 1)
+  remain.value = calcRemain()
   if (remain.value <= 0 && !emitted) {
     emitted = true
     window.clearInterval(timer)
@@ -34,21 +33,27 @@ function updateRemain() {
 function start() {
   window.clearInterval(timer)
   emitted = false
-  remain.value = calcRemain()
-  if (remain.value <= 0) {
+  updateRemain()
+  if (remain.value <= 0) return
+  timer = window.setInterval(updateRemain, 1000)
+}
+
+function handleVisibilityChange() {
+  if (!document.hidden) {
     updateRemain()
-    return
   }
-  timer = window.setInterval(() => {
-    if (props.running === false) return
-    updateRemain()
-  }, 1000)
 }
 
 watch(() => [props.seconds, props.endAt], () => {
   start()
 })
 
-onMounted(start)
-onBeforeUnmount(() => window.clearInterval(timer))
+onMounted(() => {
+  start()
+  document.addEventListener('visibilitychange', handleVisibilityChange)
+})
+onBeforeUnmount(() => {
+  window.clearInterval(timer)
+  document.removeEventListener('visibilitychange', handleVisibilityChange)
+})
 </script>

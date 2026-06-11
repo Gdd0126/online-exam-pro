@@ -79,6 +79,7 @@ const currentIndex = ref(0)
 const lastSavedAt = ref(Date.now())
 const questionOrder = ref<number[]>([])
 let lastSwitchAt = 0
+let pendingSwitch: number | null = null
 const answeredCount = computed(() => Object.values(answers).filter(Boolean).length)
 const unansweredCount = computed(() => Math.max((exam.value?.questions?.length || 0) - answeredCount.value, 0))
 const progressPercent = computed(() => {
