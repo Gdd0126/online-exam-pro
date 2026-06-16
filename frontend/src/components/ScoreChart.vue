@@ -28,9 +28,9 @@ function render() {
       data: values,
       smooth: true,
       barWidth: 24,
-      itemStyle: { borderRadius: props.horizontal ? [0, 8, 8, 0] : [8, 8, 0, 0], color: '#4f7cff' },
-      lineStyle: props.type === 'line' ? { color: '#4f7cff', width: 3 } : undefined,
-      areaStyle: props.type === 'line' ? { color: 'rgba(79,124,255,.14)' } : undefined
+      itemStyle: { borderRadius: props.horizontal ? [0, 8, 8, 0] : [8, 8, 0, 0], color: '#c1292e' },
+      lineStyle: props.type === 'line' ? { color: '#c1292e', width: 3 } : undefined,
+      areaStyle: props.type === 'line' ? { color: 'rgba(193,41,46,.14)' } : undefined
     }]
   })
 }
